@@ -5,20 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
         'email',
         'password',
         'role',
+        'nisn',        // ✅ TAMBAH
+        'kelas',       // ✅ TAMBAH
         'no_telepon',
         'alamat',
-        'foto_profil',
+        'profile_photo',
     ];
 
     protected $hidden = [
@@ -26,17 +27,19 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
-
     public function aspirasis()
     {
         return $this->hasMany(Aspirasi::class);
+    }
+
+    public function upvotes()
+    {
+        return $this->hasMany(Upvote::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
     }
 
     public function umpanBaliks()
@@ -44,13 +47,13 @@ class User extends Authenticatable
         return $this->hasMany(UmpanBalik::class, 'admin_id');
     }
 
-    public function isAdmin()
+    public function notifications()
     {
-        return $this->role === 'admin';
+        return $this->hasMany(Notification::class)->orderBy('created_at', 'desc');
     }
 
-    public function isGuest()
+    public function unreadNotifications()
     {
-        return $this->role === 'guest' || $this->role === 'user';
+        return $this->hasMany(Notification::class)->where('is_read', false);
     }
 }

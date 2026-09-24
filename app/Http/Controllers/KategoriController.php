@@ -2,51 +2,64 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Kategori;
+use App\Models\Category;
 use Illuminate\Http\Request;
 
 class KategoriController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('admin');
-    }
-
     public function index()
     {
-        $kategoris = Kategori::withCount('aspirasis')->get();
-        return view('admin.kategori', compact('kategoris'));
+        $kategoris = Category::all();
+        return view('admin.kategori.index', compact('kategoris'));
+    }
+
+    public function create()
+    {
+        return view('admin.kategori.create');
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'nama_kategori' => 'required|string|max:255|unique:kategoris',
+        $validated = $request->validate([
+            'nama_kategori' => 'required|string|max:100|unique:categories',
             'icon' => 'nullable|string|max:50',
         ]);
 
-        Kategori::create($request->all());
-        return back()->with('success', 'Kategori berhasil ditambahkan!');
+        Category::create($validated);
+
+        return redirect()->route('admin.kategori.index')
+            ->with('success', 'Kategori berhasil ditambahkan!');
     }
 
-    public function update(Request $request, Kategori $kategori)
+    public function edit(Category $kategori)
     {
-        $request->validate([
-            'nama_kategori' => 'required|string|max:255|unique:kategoris,nama_kategori,' . $kategori->id,
+        return view('admin.kategori.edit', compact('kategori'));
+    }
+
+    public function update(Request $request, Category $kategori)
+    {
+        $validated = $request->validate([
+            'nama_kategori' => 'required|string|max:100|unique:categories,nama_kategori,' . $kategori->id,
             'icon' => 'nullable|string|max:50',
         ]);
 
-        $kategori->update($request->all());
-        return back()->with('success', 'Kategori berhasil diupdate!');
+        $kategori->update($validated);
+
+        return redirect()->route('admin.kategori.index')
+            ->with('success', 'Kategori berhasil diperbarui!');
     }
 
-    public function destroy(Kategori $kategori)
+    public function destroy(Category $kategori)
     {
+        // Cek apakah ada aspirasi yang menggunakan kategori ini
         if ($kategori->aspirasis()->count() > 0) {
-            return back()->with('error', 'Kategori tidak dapat dihapus karena masih digunakan.');
+            return redirect()->route('admin.kategori.index')
+                ->with('error', 'Kategori tidak bisa dihapus karena masih digunakan oleh aspirasi!');
         }
 
         $kategori->delete();
-        return back()->with('success', 'Kategori berhasil dihapus!');
+
+        return redirect()->route('admin.kategori.index')
+            ->with('success', 'Kategori berhasil dihapus!');
     }
 }

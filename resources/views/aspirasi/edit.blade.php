@@ -2,99 +2,112 @@
 
 @section('title', 'Edit Aspirasi')
 
+@section('header', 'Edit Aspirasi')
+
+@section('actions')
+    <a href="{{ route('aspirasi.show', $aspirasi) }}" class="btn-outline-gold">
+        <i class="fas fa-arrow-left me-2"></i> Kembali
+    </a>
+@endsection
+
 @section('content')
-    <div class="container">
+    <div class="container-fluid">
         <div class="row justify-content-center">
             <div class="col-lg-8">
-                <div class="card-custom p-4">
-                    <h2 class="fw-bold mb-4">
-                        <i class="fas fa-edit text-primary me-2"></i>
-                        Edit Aspirasi
-                    </h2>
-
+                <div class="card-gold">
                     <form action="{{ route('aspirasi.update', $aspirasi) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         @method('PUT')
 
+                        {{-- KATEGORI --}}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Kategori <span class="text-danger">*</span></label>
-                            <select name="kategori_id" class="form-select @error('kategori_id') is-invalid @enderror"
-                                required>
-                                @foreach($kategoris as $kategori)
-                                    <option value="{{ $kategori->id }}" {{ $aspirasi->kategori_id == $kategori->id ? 'selected' : '' }}>
-                                        {{ $kategori->nama_kategori }}
+                            <label class="form-label fw-semibold" style="color: var(--text-gray);">
+                                <i class="fas fa-tag me-2 text-gold"></i> Kategori
+                            </label>
+                            <select name="category_id" class="form-select form-control-gold @error('category_id') is-invalid @enderror" required>
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->id }}" {{ $aspirasi->category_id == $category->id ? 'selected' : '' }}>
+                                        {{ $category->nama_kategori }}
                                     </option>
                                 @endforeach
                             </select>
-                            @error('kategori_id')
+                            @error('category_id')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
 
+                        {{-- JUDUL --}}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Judul <span class="text-danger">*</span></label>
-                            <input type="text" name="judul" class="form-control @error('judul') is-invalid @enderror"
+                            <label class="form-label fw-semibold" style="color: var(--text-gray);">
+                                <i class="fas fa-heading me-2 text-gold"></i> Judul
+                            </label>
+                            <input type="text" name="judul" class="form-control form-control-gold @error('judul') is-invalid @enderror"
                                 value="{{ old('judul', $aspirasi->judul) }}" required>
                             @error('judul')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
 
+                        {{-- DESKRIPSI --}}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Deskripsi <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold" style="color: var(--text-gray);">
+                                <i class="fas fa-align-left me-2 text-gold"></i> Deskripsi
+                            </label>
                             <textarea name="deskripsi" rows="5"
-                                class="form-control @error('deskripsi') is-invalid @enderror"
+                                class="form-control form-control-gold @error('deskripsi') is-invalid @enderror"
                                 required>{{ old('deskripsi', $aspirasi->deskripsi) }}</textarea>
                             @error('deskripsi')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
 
+                        {{-- LOKASI & PRIORITAS --}}
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label fw-semibold">Lokasi</label>
-                                <input type="text" name="lokasi" class="form-control"
+                                <label class="form-label fw-semibold" style="color: var(--text-gray);">
+                                    <i class="fas fa-map-marker-alt me-2 text-gold"></i> Lokasi
+                                </label>
+                                <input type="text" name="lokasi" class="form-control form-control-gold"
                                     value="{{ old('lokasi', $aspirasi->lokasi) }}">
                             </div>
+
                             <div class="col-md-6 mb-3">
-                                <label class="form-label fw-semibold">Prioritas <span class="text-danger">*</span></label>
-                                <select name="prioritas" class="form-select @error('prioritas') is-invalid @enderror"
-                                    required>
-                                    <option value="rendah" {{ $aspirasi->prioritas == 'rendah' ? 'selected' : '' }}>Rendah
-                                    </option>
-                                    <option value="sedang" {{ $aspirasi->prioritas == 'sedang' ? 'selected' : '' }}>Sedang
-                                    </option>
-                                    <option value="tinggi" {{ $aspirasi->prioritas == 'tinggi' ? 'selected' : '' }}>Tinggi
-                                    </option>
+                                <label class="form-label fw-semibold" style="color: var(--text-gray);">
+                                    <i class="fas fa-flag me-2 text-gold"></i> Prioritas
+                                </label>
+                                <select name="prioritas" class="form-select form-control-gold" required>
+                                    <option value="rendah" {{ $aspirasi->prioritas == 'rendah' ? 'selected' : '' }}>🔵 Rendah</option>
+                                    <option value="sedang" {{ $aspirasi->prioritas == 'sedang' ? 'selected' : '' }}>🟡 Sedang</option>
+                                    <option value="tinggi" {{ $aspirasi->prioritas == 'tinggi' ? 'selected' : '' }}>🟠 Tinggi</option>
+                                    <option value="urgent" {{ $aspirasi->prioritas == 'urgent' ? 'selected' : '' }}>🔴 Urgent</option>
                                 </select>
-                                @error('prioritas')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
                             </div>
                         </div>
 
+                        {{-- FOTO --}}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Foto Pendukung</label>
+                            <label class="form-label fw-semibold" style="color: var(--text-gray);">
+                                <i class="fas fa-image me-2 text-gold"></i> Foto Bukti (Opsional)
+                            </label>
+
                             @if($aspirasi->foto)
                                 <div class="mb-2">
-                                    <img src="{{ asset('storage/' . $aspirasi->foto) }}" alt="Foto saat ini"
-                                        style="max-height: 100px;" class="rounded">
+                                    <img src="{{ $aspirasi->foto_url }}" alt="Foto Lama" class="img-fluid rounded" style="max-height: 200px;">
+                                    <small style="color: var(--text-gray); display: block;">Foto saat ini</small>
                                 </div>
                             @endif
-                            <input type="file" name="foto" class="form-control @error('foto') is-invalid @enderror"
-                                accept="image/*">
-                            <small class="text-muted">Kosongkan jika tidak ingin mengganti foto</small>
-                            @error('foto')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+
+                            <input type="file" name="foto" class="form-control form-control-gold" accept="image/*">
+                            <small style="color: var(--text-gray);">Kosongkan jika tidak ingin ganti foto</small>
                         </div>
 
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary-custom">
-                                <i class="fas fa-save me-2"></i> Update Aspirasi
+                        {{-- TOMBOL --}}
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn-gold">
+                                <i class="fas fa-save me-2"></i> Simpan Perubahan
                             </button>
-                            <a href="{{ route('aspirasi.index') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-arrow-left me-2"></i> Kembali
+                            <a href="{{ route('aspirasi.show', $aspirasi) }}" class="btn-outline-gold">
+                                <i class="fas fa-times me-2"></i> Batal
                             </a>
                         </div>
                     </form>

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Aspirasi;
-use App\Models\Kategori;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -13,35 +13,45 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // Jika user belum login, redirect ke login
         if (!$user) {
             return redirect()->route('login');
         }
 
-        if ($user->role === 'admin') {
-            return $this->adminDashboard();
+        // Jika role bukan admin, redirect ke halaman user biasa
+        if ($user->role === 'guest' || $user->role === 'student') {
+            return $this->userDashboard();
         }
 
-        return $this->userDashboard();
+        // Admin
+        return $this->adminDashboard();
     }
 
+    /**
+     * ============================================
+     * DASHBOARD ADMIN
+     * ============================================
+     */
     private function adminDashboard()
     {
+        // ✅ STATISTIK — pakai status BARU
         $totalAspirasi = Aspirasi::count();
-        $pending = Aspirasi::where('status', 'pending')->count();
-        $proses = Aspirasi::where('status', 'proses')->count();
+        $menunggu = Aspirasi::where('status', 'menunggu')->count();
+        $ditinjau = Aspirasi::where('status', 'ditinjau')->count();
+        $dalamPerbaikan = Aspirasi::where('status', 'dalam_perbaikan')->count();
         $selesai = Aspirasi::where('status', 'selesai')->count();
         $ditolak = Aspirasi::where('status', 'ditolak')->count();
 
-        $aspirasiPerKategori = Kategori::withCount('aspirasis')->get();
+        $aspirasiPerKategori = Category::withCount('aspirasis')->get();
 
-        $recentAspirasi = Aspirasi::with(['user', 'kategori'])
+        // ✅ VARIABEL: recentAspirasis (pakai 's')
+        $recentAspirasis = Aspirasi::with(['user', 'category'])
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
 
-        $statistikBulanan = Aspirasi::selectRaw('MONTH(tanggal_aspirasi) as bulan, COUNT(*) as total')
-            ->whereYear('tanggal_aspirasi', date('Y'))
+        // Statistik bulanan
+        $statistikBulanan = Aspirasi::selectRaw('MONTH(created_at) as bulan, COUNT(*) as total')
+            ->whereYear('created_at', date('Y'))
             ->groupBy('bulan')
             ->orderBy('bulan')
             ->get();
@@ -53,42 +63,52 @@ class DashboardController extends Controller
             $dataBulan[$stat->bulan - 1] = $stat->total;
         }
 
-        // Untuk Breeze, kirim data ke view admin.dashboard
         return view('admin.dashboard', compact(
             'totalAspirasi',
-            'pending',
-            'proses',
+            'menunggu',
+            'ditinjau',
+            'dalamPerbaikan',
             'selesai',
             'ditolak',
             'aspirasiPerKategori',
-            'recentAspirasi',
+            'recentAspirasis',   // ✅ pakai 's'
             'bulanLabels',
             'dataBulan'
         ));
     }
 
+    /**
+     * ============================================
+     * DASHBOARD USER (GUEST/STUDENT)
+     * ============================================
+     */
     private function userDashboard()
     {
         $user = Auth::user();
 
+        // ✅ STATISTIK — pakai status BARU
         $totalAspirasi = Aspirasi::where('user_id', $user->id)->count();
-        $pending = Aspirasi::where('user_id', $user->id)->where('status', 'pending')->count();
-        $proses = Aspirasi::where('user_id', $user->id)->where('status', 'proses')->count();
+        $menunggu = Aspirasi::where('user_id', $user->id)->where('status', 'menunggu')->count();
+        $ditinjau = Aspirasi::where('user_id', $user->id)->where('status', 'ditinjau')->count();
+        $dalamPerbaikan = Aspirasi::where('user_id', $user->id)->where('status', 'dalam_perbaikan')->count();
         $selesai = Aspirasi::where('user_id', $user->id)->where('status', 'selesai')->count();
+        $ditolak = Aspirasi::where('user_id', $user->id)->where('status', 'ditolak')->count();
 
-        $recentAspirasi = Aspirasi::with(['kategori', 'umpanBalik'])
+        // ✅ VARIABEL: recentAspirasis (pakai 's')
+        $recentAspirasis = Aspirasi::with(['category', 'umpanBalik'])
             ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
 
-        // Untuk Breeze, kirim data ke view user.dashboard
         return view('user.dashboard', compact(
             'totalAspirasi',
-            'pending',
-            'proses',
+            'menunggu',
+            'ditinjau',
+            'dalamPerbaikan',
             'selesai',
-            'recentAspirasi'
+            'ditolak',
+            'recentAspirasis'   // ✅ pakai 's'
         ));
     }
 }

@@ -9,13 +9,16 @@ class UmpanBalik extends Model
 {
     use HasFactory;
 
+    protected $table = 'umpan_baliks';
+
     protected $fillable = [
         'aspirasi_id',
         'admin_id',
-        'isi_umpan_balik',
+        'isi_umpan_balik',  // ← PAKAI INI (sesuai migration)
         'lampiran',
         'jenis',
         'is_read',
+        // ❌ 'pesan' DIHAPUS karena duplikat
     ];
 
     protected $casts = [

@@ -3,53 +3,87 @@
 namespace App\Http\Controllers;
 
 use App\Models\Aspirasi;
-use App\Models\Kategori;
+use App\Models\Category;
+use App\Models\Upvote;
+use App\Models\Comment;
+use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 
 class AspirasiController extends Controller
 {
     public function index()
     {
-        $aspirasis = Aspirasi::with(['user', 'kategori', 'umpanBalik'])
-            ->when(Auth::user()->role !== 'admin', function ($query) {
-                return $query->where('user_id', Auth::id());
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+        $user = Auth::user();
+
+        if ($user->role === 'admin') {
+            $aspirasis = Aspirasi::with(['user', 'category'])
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+        } else {
+            $aspirasis = Aspirasi::with(['user', 'category'])
+                ->where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+        }
 
         return view('aspirasi.index', compact('aspirasis'));
     }
 
     public function create()
     {
-        $kategoris = Kategori::all();
-        return view('aspirasi.create', compact('kategoris'));
+        $categories = Category::all();
+        return view('aspirasi.create', compact('categories'));
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'kategori_id' => 'required|exists:kategoris,id',
-            'judul' => 'required|string|max:255',
-            'deskripsi' => 'required|string',
+        $validated = $request->validate([
+            'judul' => 'required|string|max:200',
+            'category_id' => 'required|exists:categories,id',
+            'deskripsi' => 'required|string|min:10',
             'lokasi' => 'nullable|string|max:255',
-            'foto' => 'nullable|image|max:2048',
-            'prioritas' => 'required|in:rendah,sedang,tinggi',
+            'prioritas' => 'required|in:rendah,sedang,tinggi,urgent',
+            'is_anonymous' => 'boolean',
+            'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            // ✅ VALIDASI NISN & KELAS
+            'nisn' => 'required|string|max:20',
+            'kelas' => 'required|string|max:50',
         ]);
 
-        $data = $request->all();
-        $data['user_id'] = Auth::id();
-        $data['status'] = 'pending';
-        $data['tanggal_aspirasi'] = now();
-
+        $fotoPath = null;
         if ($request->hasFile('foto')) {
-            $path = $request->file('foto')->store('aspirasi-foto', 'public');
-            $data['foto'] = $path;
+            $fotoPath = $request->file('foto')->store('aspirasi', 'public');
         }
 
-        Aspirasi::create($data);
+        $aspirasi = Aspirasi::create([
+            'user_id' => Auth::id(),
+            'nisn' => $validated['nisn'],      // ✅ TAMBAH
+            'kelas' => $validated['kelas'],    // ✅ TAMBAH
+            'category_id' => $validated['category_id'],
+            'judul' => $validated['judul'],
+            'deskripsi' => $validated['deskripsi'],
+            'lokasi' => $validated['lokasi'] ?? null,
+            'prioritas' => $validated['prioritas'],
+            'is_anonymous' => $request->has('is_anonymous'),
+            'foto' => $fotoPath,
+            'status' => 'menunggu',
+            'tanggal_aspirasi' => now(),
+            'upvotes_count' => 0,
+        ]);
+
+        // Notifikasi IN-APP ke admin
+        $admins = User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            Notification::create([
+                'user_id' => $admin->id,
+                'aspirasi_id' => $aspirasi->id,
+                'type' => 'new_aspirasi',
+                'message' => 'Pengaduan baru: ' . $aspirasi->judul,
+                'is_read' => false,
+            ]);
+        }
 
         return redirect()->route('aspirasi.index')
             ->with('success', 'Aspirasi berhasil dikirim!');
@@ -57,68 +91,70 @@ class AspirasiController extends Controller
 
     public function show(Aspirasi $aspirasi)
     {
-        $this->authorizeAccess($aspirasi);
-        
-        $aspirasi->load(['user', 'kategori', 'umpanBalik.admin']);
-        
-        return view('aspirasi.show', compact('aspirasi'));
+        $aspirasi->load(['user', 'category', 'comments.user', 'umpanBalik.admin']);
+
+        $isUpvoted = Upvote::where('aspirasi_id', $aspirasi->id)
+            ->where('user_id', Auth::id())
+            ->exists();
+
+        return view('aspirasi.show', compact('aspirasi', 'isUpvoted'));
     }
 
     public function edit(Aspirasi $aspirasi)
     {
-        $this->authorizeAccess($aspirasi);
-        
-        if ($aspirasi->status !== 'pending') {
-            return back()->with('error', 'Aspirasi yang sudah diproses tidak dapat diubah.');
+        // Cek akses: hanya pemilik atau admin
+        if (Auth::user()->role !== 'admin' && Auth::id() !== $aspirasi->user_id) {
+            return redirect()->route('aspirasi.index')
+                ->with('error', 'Anda tidak memiliki akses!');
         }
 
-        $kategoris = Kategori::all();
-        return view('aspirasi.edit', compact('aspirasi', 'kategoris'));
+        // Hanya bisa edit jika status masih 'menunggu'
+        if ($aspirasi->status !== 'menunggu' && Auth::user()->role !== 'admin') {
+            return redirect()->route('aspirasi.show', $aspirasi)
+                ->with('error', 'Aspirasi yang sudah diproses tidak bisa diedit!');
+        }
+
+        $categories = Category::all();
+        return view('aspirasi.edit', compact('aspirasi', 'categories'));
     }
 
     public function update(Request $request, Aspirasi $aspirasi)
     {
-        $this->authorizeAccess($aspirasi);
-
-        if ($aspirasi->status !== 'pending') {
-            return back()->with('error', 'Aspirasi yang sudah diproses tidak dapat diubah.');
+        // Cek akses
+        if (Auth::user()->role !== 'admin' && Auth::id() !== $aspirasi->user_id) {
+            return redirect()->route('aspirasi.index')
+                ->with('error', 'Anda tidak memiliki akses!');
         }
 
-        $request->validate([
-            'kategori_id' => 'required|exists:kategoris,id',
-            'judul' => 'required|string|max:255',
-            'deskripsi' => 'required|string',
+        $validated = $request->validate([
+            'judul' => 'required|string|max:200',
+            'category_id' => 'required|exists:categories,id',
+            'deskripsi' => 'required|string|min:10',
             'lokasi' => 'nullable|string|max:255',
-            'foto' => 'nullable|image|max:2048',
-            'prioritas' => 'required|in:rendah,sedang,tinggi',
+            'prioritas' => 'required|in:rendah,sedang,tinggi,urgent',
+            'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            // ✅ VALIDASI NISN & KELAS
+            'nisn' => 'required|string|max:20',
+            'kelas' => 'required|string|max:50',
         ]);
 
-        $data = $request->all();
-
+        // Upload foto baru jika ada
         if ($request->hasFile('foto')) {
-            if ($aspirasi->foto) {
-                Storage::disk('public')->delete($aspirasi->foto);
-            }
-            $path = $request->file('foto')->store('aspirasi-foto', 'public');
-            $data['foto'] = $path;
+            $fotoPath = $request->file('foto')->store('aspirasi', 'public');
+            $validated['foto'] = $fotoPath;
         }
 
-        $aspirasi->update($data);
+        $aspirasi->update($validated);
 
-        return redirect()->route('aspirasi.index')
-            ->with('success', 'Aspirasi berhasil diupdate!');
+        return redirect()->route('aspirasi.show', $aspirasi)
+            ->with('success', 'Aspirasi berhasil diperbarui!');
     }
 
     public function destroy(Aspirasi $aspirasi)
     {
-        $this->authorizeAccess($aspirasi);
-
-        if ($aspirasi->status !== 'pending') {
-            return back()->with('error', 'Aspirasi yang sudah diproses tidak dapat dihapus.');
-        }
-
-        if ($aspirasi->foto) {
-            Storage::disk('public')->delete($aspirasi->foto);
+        if (Auth::user()->role !== 'admin' && Auth::id() !== $aspirasi->user_id) {
+            return redirect()->route('aspirasi.index')
+                ->with('error', 'Anda tidak memiliki akses!');
         }
 
         $aspirasi->delete();
@@ -127,31 +163,86 @@ class AspirasiController extends Controller
             ->with('success', 'Aspirasi berhasil dihapus!');
     }
 
+    public function upvote(Aspirasi $aspirasi)
+    {
+        $existing = Upvote::where('aspirasi_id', $aspirasi->id)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if ($existing) {
+            $existing->delete();
+            $aspirasi->decrement('upvotes_count');
+            $message = 'Upvote dibatalkan';
+        } else {
+            Upvote::create([
+                'aspirasi_id' => $aspirasi->id,
+                'user_id' => Auth::id(),
+            ]);
+            $aspirasi->increment('upvotes_count');
+            $message = 'Berhasil mendukung aspirasi ini!';
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'upvotes_count' => $aspirasi->fresh()->upvotes_count,
+        ]);
+    }
+
+    public function comment(Request $request, Aspirasi $aspirasi)
+    {
+        $validated = $request->validate([
+            'comment' => 'required|string|min:3',
+            'is_anonymous' => 'boolean',
+        ]);
+
+        Comment::create([
+            'aspirasi_id' => $aspirasi->id,
+            'user_id' => Auth::id(),
+            'comment' => $validated['comment'],
+            'is_anonymous' => $request->has('is_anonymous'),
+        ]);
+
+        if (Auth::id() !== $aspirasi->user_id) {
+            Notification::create([
+                'user_id' => $aspirasi->user_id,
+                'aspirasi_id' => $aspirasi->id,
+                'type' => 'new_comment',
+                'message' => 'Komentar baru pada pengaduan: ' . $aspirasi->judul,
+                'is_read' => false,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Komentar berhasil ditambahkan!');
+    }
+
     public function updateStatus(Request $request, Aspirasi $aspirasi)
     {
         if (Auth::user()->role !== 'admin') {
-            abort(403);
+            return redirect()->back()->with('error', 'Hanya admin yang bisa mengubah status!');
         }
 
-        $request->validate([
-            'status' => 'required|in:pending,proses,selesai,ditolak',
+        $validated = $request->validate([
+            'status' => 'required|in:menunggu,ditinjau,dalam_perbaikan,selesai,ditolak',
         ]);
 
-        $data = ['status' => $request->status];
-        
-        if ($request->status === 'selesai') {
-            $data['tanggal_selesai'] = now();
+        $oldStatus = $aspirasi->status;
+
+        $aspirasi->update([
+            'status' => $validated['status'],
+            'tanggal_selesai' => $validated['status'] === 'selesai' ? now() : null,
+        ]);
+
+        if ($oldStatus !== $validated['status']) {
+            Notification::create([
+                'user_id' => $aspirasi->user_id,
+                'aspirasi_id' => $aspirasi->id,
+                'type' => 'status_update',
+                'message' => 'Status pengaduan "' . $aspirasi->judul . '" berubah menjadi: ' . $aspirasi->status_label,
+                'is_read' => false,
+            ]);
         }
 
-        $aspirasi->update($data);
-
-        return back()->with('success', 'Status aspirasi berhasil diupdate!');
-    }
-
-    private function authorizeAccess($aspirasi)
-    {
-        if (Auth::user()->role !== 'admin' && $aspirasi->user_id !== Auth::id()) {
-            abort(403, 'Anda tidak memiliki akses ke aspirasi ini.');
-        }
+        return redirect()->back()->with('success', 'Status berhasil diperbarui!');
     }
 }

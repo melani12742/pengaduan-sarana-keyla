@@ -2,186 +2,132 @@
 
 @section('title', 'Dashboard Admin')
 
+@section('header', 'Dashboard Admin')
+
 @section('content')
-    <div class="container-fluid">
-        <!-- Welcome -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <h2 class="fw-bold">
-                    <i class="fas fa-user-shield text-primary me-2"></i>
-                    Dashboard Admin
-                </h2>
-                <p class="text-muted">Selamat datang, {{ auth()->user()->name }}! Kelola semua aspirasi di sini.</p>
-            </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-2">
-                <div class="stat-card text-center">
-                    <h4 class="fw-bold mb-1">{{ $totalAspirasi }}</h4>
-                    <p class="text-muted small mb-0">Total</p>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="stat-card text-center border-start border-warning border-4">
-                    <h4 class="fw-bold mb-1 text-warning">{{ $pending }}</h4>
-                    <p class="text-muted small mb-0">Menunggu</p>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="stat-card text-center border-start border-info border-4">
-                    <h4 class="fw-bold mb-1 text-info">{{ $proses }}</h4>
-                    <p class="text-muted small mb-0">Diproses</p>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="stat-card text-center border-start border-success border-4">
-                    <h4 class="fw-bold mb-1 text-success">{{ $selesai }}</h4>
-                    <p class="text-muted small mb-0">Selesai</p>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="stat-card text-center border-start border-danger border-4">
-                    <h4 class="fw-bold mb-1 text-danger">{{ $ditolak }}</h4>
-                    <p class="text-muted small mb-0">Ditolak</p>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="stat-card text-center border-start border-primary border-4">
-                    <h4 class="fw-bold mb-1">{{ $aspirasiPerKategori->count() }}</h4>
-                    <p class="text-muted small mb-0">Kategori</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chart & Kategori -->
-        <div class="row g-4 mb-4">
-            <div class="col-md-8">
-                <div class="card-custom p-4">
-                    <h5 class="fw-bold mb-3">
-                        <i class="fas fa-chart-bar me-2"></i> Statistik Aspirasi per Bulan
-                    </h5>
-                    <canvas id="chartAspirasi" height="200"></canvas>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card-custom p-4">
-                    <h5 class="fw-bold mb-3">
-                        <i class="fas fa-chart-pie me-2"></i> Per Kategori
-                    </h5>
-                    <div class="list-group list-group-flush">
-                        @foreach($aspirasiPerKategori as $kat)
-                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                <span>
-                                    <i class="fas {{ $kat->icon ?? 'fa-tag' }} me-2 text-primary"></i>
-                                    {{ $kat->nama_kategori }}
-                                </span>
-                                <span class="badge bg-primary rounded-pill">{{ $kat->aspirasis_count }}</span>
-                            </div>
-                        @endforeach
+    {{-- STATISTIK --}}
+    <div class="row g-4 mb-4">
+        {{-- TOTAL ASPIRASI --}}
+        <div class="col-md-3">
+            <div class="card-modern">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p style="font-size: 13px; color: var(--text-gray); margin: 0;">Total Aspirasi</p>
+                        <h2 style="font-size: 32px; font-weight: 700; color: var(--primary); margin: 8px 0 0;">
+                            {{ $totalAspirasi ?? 0 }}</h2>
+                    </div>
+                    <div
+                        style="width: 48px; height: 48px; background: var(--secondary); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 20px;">
+                        <i class="fas fa-clipboard-list"></i>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Aspirasi -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card-custom p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold mb-0">
-                            <i class="fas fa-tasks me-2"></i> Aspirasi Terbaru
-                        </h5>
-                        <a href="{{ route('admin.all-aspirasi') }}" class="btn btn-sm btn-outline-primary">
-                            Kelola Semua <i class="fas fa-arrow-right ms-1"></i>
-                        </a>
+        {{-- MENUNGGU --}}
+        <div class="col-md-3">
+            <div class="card-modern">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p style="font-size: 13px; color: var(--text-gray); margin: 0;">Menunggu</p>
+                        <h2 style="font-size: 32px; font-weight: 700; color: #F59E0B; margin: 8px 0 0;">{{ $menunggu ?? 0 }}
+                        </h2>
                     </div>
+                    <div
+                        style="width: 48px; height: 48px; background: #FEF3C7; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #F59E0B; font-size: 20px;">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Pengadu</th>
-                                    <th>Judul</th>
-                                    <th>Kategori</th>
-                                    <th>Status</th>
-                                    <th>Prioritas</th>
-                                    <th>Tanggal</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($recentAspirasi as $aspirasi)
-                                    <tr>
-                                        <td>{{ $loop->iteration }}</td>
-                                        <td>{{ $aspirasi->user->name }}</td>
-                                        <td>{{ Str::limit($aspirasi->judul, 25) }}</td>
-                                        <td>{{ $aspirasi->kategori->nama_kategori }}</td>
-                                        <td>
-                                            <span class="badge-status badge-{{ $aspirasi->status_badge }}">
-                                                {{ $aspirasi->status_label }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span
-                                                class="badge bg-{{ $aspirasi->prioritas == 'tinggi' ? 'danger' : ($aspirasi->prioritas == 'sedang' ? 'warning' : 'info') }}">
-                                                {{ ucfirst($aspirasi->prioritas) }}
-                                            </span>
-                                        </td>
-                                        <td>{{ $aspirasi->created_at->format('d/m/Y H:i') }}</td>
-                                        <td>
-                                            <a href="{{ route('aspirasi.show', $aspirasi) }}"
-                                                class="btn btn-sm btn-outline-primary">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+        {{-- DALAM PERBAIKAN --}}
+        <div class="col-md-3">
+            <div class="card-modern">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p style="font-size: 13px; color: var(--text-gray); margin: 0;">Dalam Perbaikan</p>
+                        <h2 style="font-size: 32px; font-weight: 700; color: #3B82F6; margin: 8px 0 0;">
+                            {{ $dalamPerbaikan ?? 0 }}</h2>
+                    </div>
+                    <div
+                        style="width: 48px; height: 48px; background: #DBEAFE; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #3B82F6; font-size: 20px;">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- SELESAI --}}
+        <div class="col-md-3">
+            <div class="card-modern">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p style="font-size: 13px; color: var(--text-gray); margin: 0;">Selesai</p>
+                        <h2 style="font-size: 32px; font-weight: 700; color: #10B981; margin: 8px 0 0;">{{ $selesai ?? 0 }}
+                        </h2>
+                    </div>
+                    <div
+                        style="width: 48px; height: 48px; background: #D1FAE5; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #10B981; font-size: 20px;">
+                        <i class="fas fa-check-circle"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    @push('scripts')
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                const ctx = document.getElementById('chartAspirasi').getContext('2d');
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: {!! json_encode($bulanLabels) !!},
-                        datasets: [{
-                            label: 'Jumlah Aspirasi',
-                            data: {!! json_encode($dataBulan) !!},
-                            backgroundColor: 'rgba(79, 70, 229, 0.7)',
-                            borderColor: '#4F46E5',
-                            borderWidth: 2,
-                            borderRadius: 8
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-        </script>
-    @endpush
+    {{-- ASPIRASI TERBARU --}}
+    <div class="card-modern">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 style="margin: 0; font-weight: 700;">Aspirasi Terbaru</h5>
+            <a href="{{ route('admin.all-aspirasi') }}" class="btn-outline-modern"
+                style="padding: 8px 16px; font-size: 13px;">
+                Lihat Semua <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table-modern">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Judul</th>
+                        <th>Pelapor</th>
+                        <th>Kategori</th>
+                        <th>Status</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($recentAspirasis ?? [] as $key => $aspirasi)
+                        <tr>
+                            <td>{{ $key + 1 }}</td>
+                            <td style="font-weight: 600;">{{ $aspirasi->judul }}</td>
+                            <td>{{ $aspirasi->display_name }}</td>
+                            <td>{{ $aspirasi->category->nama_kategori ?? 'N/A' }}</td>
+                            <td>
+                                <span class="badge-modern badge-{{ $aspirasi->status }}">
+                                    {{ $aspirasi->status_label }}
+                                </span>
+                            </td>
+                            <td>{{ $aspirasi->created_at->format('d/m/Y') }}</td>
+                            <td>
+                                <a href="{{ route('aspirasi.show', $aspirasi) }}" class="btn-outline-modern"
+                                    style="padding: 6px 12px; font-size: 12px;">
+                                    Detail
+                                </a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="text-center" style="padding: 40px; color: var(--text-gray);">
+                                Belum ada aspirasi
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
 @endsection

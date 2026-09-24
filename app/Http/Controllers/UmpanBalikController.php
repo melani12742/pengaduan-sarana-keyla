@@ -2,48 +2,60 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Aspirasi;
 use App\Models\UmpanBalik;
+use App\Models\Aspirasi;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class UmpanBalikController extends Controller
 {
-    public function store(Request $request)
+    public function store(Request $request, Aspirasi $aspirasi)
     {
         if (Auth::user()->role !== 'admin') {
-            abort(403);
+            return redirect()->back()->with('error', 'Hanya admin yang bisa memberikan umpan balik!');
         }
 
-        $request->validate([
-            'aspirasi_id' => 'required|exists:aspirasis,id',
-            'isi_umpan_balik' => 'required|string',
+        $validated = $request->validate([
+            'isi_umpan_balik' => 'required|string|min:5|max:2000',  // ← PAKAI INI
+            'lampiran' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
             'jenis' => 'required|in:internal,eksternal',
-            'lampiran' => 'nullable|file|max:5120',
         ]);
 
-        $data = $request->all();
-        $data['admin_id'] = Auth::id();
-
+        $lampiranPath = null;
         if ($request->hasFile('lampiran')) {
-            $path = $request->file('lampiran')->store('umpan-balik', 'public');
-            $data['lampiran'] = $path;
+            $lampiranPath = $request->file('lampiran')->store('umpan-balik', 'public');
         }
 
-        UmpanBalik::create($data);
+        UmpanBalik::create([
+            'aspirasi_id' => $aspirasi->id,
+            'admin_id' => Auth::id(),
+            'isi_umpan_balik' => $validated['isi_umpan_balik'],  // ← PAKAI INI
+            'lampiran' => $lampiranPath,
+            'jenis' => $validated['jenis'],
+            'is_read' => false,
+        ]);
 
-        // Update status aspirasi menjadi proses jika belum
-        $aspirasi = Aspirasi::find($request->aspirasi_id);
-        if ($aspirasi->status === 'pending') {
-            $aspirasi->update(['status' => 'proses']);
-        }
+        // Notifikasi IN-APP ke pemilik aspirasi
+        Notification::create([
+            'user_id' => $aspirasi->user_id,
+            'aspirasi_id' => $aspirasi->id,
+            'type' => 'umpan_balik',
+            'message' => 'Admin memberikan umpan balik pada pengaduan: ' . $aspirasi->judul,
+            'is_read' => false,
+        ]);
 
-        return back()->with('success', 'Umpan balik berhasil dikirim!');
+        return redirect()->back()->with('success', 'Umpan balik berhasil dikirim!');
     }
 
-    public function markAsRead(UmpanBalik $umpanBalik)
+    public function destroy(UmpanBalik $umpanBalik)
     {
-        $umpanBalik->update(['is_read' => true]);
-        return response()->json(['success' => true]);
+        if (Auth::id() !== $umpanBalik->admin_id) {
+            return redirect()->back()->with('error', 'Anda tidak bisa menghapus umpan balik orang lain!');
+        }
+
+        $umpanBalik->delete();
+
+        return redirect()->back()->with('success', 'Umpan balik berhasil dihapus!');
     }
 }

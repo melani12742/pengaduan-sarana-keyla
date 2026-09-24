@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->enum('jenis', ['internal', 'eksternal'])->default('internal');
             $table->boolean('is_read')->default(false);
             $table->timestamps();
+            $table->text('pesan');
         });
     }
 
