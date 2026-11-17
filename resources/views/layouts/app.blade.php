@@ -153,6 +153,11 @@
             color: white;
         }
 
+        .sidebar .nav-link .badge-danger {
+            background: #EF4444;
+            color: white;
+        }
+
         /* SIDEBAR PROFILE */
         .sidebar-profile {
             padding: 16px 20px;
@@ -168,7 +173,6 @@
             border-radius: 12px;
             object-fit: cover;
             border: 2px solid var(--secondary);
-            cursor: pointer;
         }
 
         .sidebar-profile-info {
@@ -243,6 +247,33 @@
 
         .page-header h1 span {
             color: var(--primary);
+        }
+
+        /* NOTIFICATION BELL */
+        .notif-bell {
+            position: relative;
+            color: var(--text-gray);
+            font-size: 20px;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .notif-bell:hover {
+            color: var(--primary);
+        }
+
+        .notif-bell-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #EF4444;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 20px;
+            font-weight: 600;
+            min-width: 18px;
+            text-align: center;
         }
 
         /* CARD */
@@ -474,6 +505,10 @@
         </div>
 
         <nav class="sidebar-nav">
+            @php
+                $unreadCount = Auth::check() ? \App\Models\Notification::where('user_id', Auth::id())->where('is_read', false)->count() : 0;
+            @endphp
+
             <div class="nav-section">Menu Utama</div>
 
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -481,7 +516,7 @@
             </a>
 
             @auth
-                @if(Auth::user()->role === 'guest')
+                @if(Auth::user()->role === 'guest' || Auth::user()->role === 'student')
                     <a href="{{ route('aspirasi.create') }}"
                         class="nav-link {{ request()->routeIs('aspirasi.create') ? 'active' : '' }}">
                         <i class="fas fa-plus-circle"></i> Buat Aspirasi
@@ -494,6 +529,18 @@
                 <i class="fas fa-list"></i> Daftar Aspirasi
             </a>
 
+            {{-- ✅ MENU NOTIFIKASI --}}
+            @auth
+                <a href="{{ route('notifications.index') }}"
+                    class="nav-link {{ request()->routeIs('notifications.*') ? 'active' : '' }}">
+                    <i class="fas fa-bell"></i> Notifikasi
+                    @if($unreadCount > 0)
+                        <span class="badge badge-danger">{{ $unreadCount }}</span>
+                    @endif
+                </a>
+            @endauth
+
+            {{-- MENU ADMIN --}}
             @auth
                 @if(Auth::user()->role === 'admin')
                     <div class="nav-section">Administrasi</div>
@@ -550,7 +597,18 @@
     <main class="main-content">
         <div class="page-header">
             <h1>@yield('header', 'Dashboard')</h1>
-            @yield('actions')
+            <div class="d-flex align-items-center gap-3">
+                @auth
+                    {{-- ✅ LONCENG NOTIFIKASI DI HEADER --}}
+                    <a href="{{ route('notifications.index') }}" class="notif-bell" title="Notifikasi">
+                        <i class="fas fa-bell"></i>
+                        @if($unreadCount > 0)
+                            <span class="notif-bell-badge">{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
+                        @endif
+                    </a>
+                @endauth
+                @yield('actions')
+            </div>
         </div>
 
         @if(session('success'))

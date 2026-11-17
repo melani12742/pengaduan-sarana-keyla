@@ -17,7 +17,7 @@ class UmpanBalikController extends Controller
         }
 
         $validated = $request->validate([
-            'isi_umpan_balik' => 'required|string|min:5|max:2000',  // ← PAKAI INI
+            'isi_umpan_balik' => 'required|string|min:5|max:2000',
             'lampiran' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
             'jenis' => 'required|in:internal,eksternal',
         ]);
@@ -30,20 +30,22 @@ class UmpanBalikController extends Controller
         UmpanBalik::create([
             'aspirasi_id' => $aspirasi->id,
             'admin_id' => Auth::id(),
-            'isi_umpan_balik' => $validated['isi_umpan_balik'],  // ← PAKAI INI
+            'isi_umpan_balik' => $validated['isi_umpan_balik'],
             'lampiran' => $lampiranPath,
             'jenis' => $validated['jenis'],
             'is_read' => false,
         ]);
 
-        // Notifikasi IN-APP ke pemilik aspirasi
-        Notification::create([
-            'user_id' => $aspirasi->user_id,
-            'aspirasi_id' => $aspirasi->id,
-            'type' => 'umpan_balik',
-            'message' => 'Admin memberikan umpan balik pada pengaduan: ' . $aspirasi->judul,
-            'is_read' => false,
-        ]);
+        // ✅ Notifikasi ke PEMILIK aspirasi (jika jenis eksternal)
+        if ($validated['jenis'] === 'eksternal') {
+            Notification::create([
+                'user_id' => $aspirasi->user_id,
+                'aspirasi_id' => $aspirasi->id,
+                'type' => 'umpan_balik',
+                'message' => 'Admin memberikan umpan balik pada pengaduan: ' . $aspirasi->judul,
+                'is_read' => false,
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Umpan balik berhasil dikirim!');
     }

@@ -47,7 +47,6 @@ class AspirasiController extends Controller
             'prioritas' => 'required|in:rendah,sedang,tinggi,urgent',
             'is_anonymous' => 'boolean',
             'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            // ✅ VALIDASI NISN & KELAS
             'nisn' => 'required|string|max:20',
             'kelas' => 'required|string|max:50',
         ]);
@@ -59,8 +58,8 @@ class AspirasiController extends Controller
 
         $aspirasi = Aspirasi::create([
             'user_id' => Auth::id(),
-            'nisn' => $validated['nisn'],      // ✅ TAMBAH
-            'kelas' => $validated['kelas'],    // ✅ TAMBAH
+            'nisn' => $validated['nisn'],
+            'kelas' => $validated['kelas'],
             'category_id' => $validated['category_id'],
             'judul' => $validated['judul'],
             'deskripsi' => $validated['deskripsi'],
@@ -73,14 +72,14 @@ class AspirasiController extends Controller
             'upvotes_count' => 0,
         ]);
 
-        // Notifikasi IN-APP ke admin
+        // ✅ Notifikasi ke SEMUA ADMIN (surat masuk)
         $admins = User::where('role', 'admin')->get();
         foreach ($admins as $admin) {
             Notification::create([
                 'user_id' => $admin->id,
                 'aspirasi_id' => $aspirasi->id,
                 'type' => 'new_aspirasi',
-                'message' => 'Pengaduan baru: ' . $aspirasi->judul,
+                'message' => 'Surat masuk: "' . $aspirasi->judul . '" dari ' . (Auth::user()->is_anonymous ?? false ? 'Anonim' : Auth::user()->name),
                 'is_read' => false,
             ]);
         }
@@ -100,16 +99,20 @@ class AspirasiController extends Controller
         return view('aspirasi.show', compact('aspirasi', 'isUpvoted'));
     }
 
+    /**
+     * ✅ EDIT: HANYA PEMILIK (SISWA), BUKAN ADMIN
+     * Admin TIDAK BOLEH edit laporan siswa
+     */
     public function edit(Aspirasi $aspirasi)
     {
-        // Cek akses: hanya pemilik atau admin
-        if (Auth::user()->role !== 'admin' && Auth::id() !== $aspirasi->user_id) {
+        // ✅ HANYA PEMILIK yang bisa edit — Admin TIDAK BOLEH!
+        if (Auth::id() !== $aspirasi->user_id) {
             return redirect()->route('aspirasi.index')
-                ->with('error', 'Anda tidak memiliki akses!');
+                ->with('error', 'Admin tidak diizinkan mengedit laporan siswa!');
         }
 
         // Hanya bisa edit jika status masih 'menunggu'
-        if ($aspirasi->status !== 'menunggu' && Auth::user()->role !== 'admin') {
+        if ($aspirasi->status !== 'menunggu') {
             return redirect()->route('aspirasi.show', $aspirasi)
                 ->with('error', 'Aspirasi yang sudah diproses tidak bisa diedit!');
         }
@@ -118,12 +121,21 @@ class AspirasiController extends Controller
         return view('aspirasi.edit', compact('aspirasi', 'categories'));
     }
 
+    /**
+     * ✅ UPDATE: HANYA PEMILIK (SISWA), BUKAN ADMIN
+     */
     public function update(Request $request, Aspirasi $aspirasi)
     {
-        // Cek akses
-        if (Auth::user()->role !== 'admin' && Auth::id() !== $aspirasi->user_id) {
+        // ✅ HANYA PEMILIK yang bisa update — Admin TIDAK BOLEH!
+        if (Auth::id() !== $aspirasi->user_id) {
             return redirect()->route('aspirasi.index')
-                ->with('error', 'Anda tidak memiliki akses!');
+                ->with('error', 'Admin tidak diizinkan mengedit laporan siswa!');
+        }
+
+        // Hanya bisa update jika status masih 'menunggu'
+        if ($aspirasi->status !== 'menunggu') {
+            return redirect()->route('aspirasi.show', $aspirasi)
+                ->with('error', 'Aspirasi yang sudah diproses tidak bisa diedit!');
         }
 
         $validated = $request->validate([
@@ -133,12 +145,10 @@ class AspirasiController extends Controller
             'lokasi' => 'nullable|string|max:255',
             'prioritas' => 'required|in:rendah,sedang,tinggi,urgent',
             'foto' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            // ✅ VALIDASI NISN & KELAS
             'nisn' => 'required|string|max:20',
             'kelas' => 'required|string|max:50',
         ]);
 
-        // Upload foto baru jika ada
         if ($request->hasFile('foto')) {
             $fotoPath = $request->file('foto')->store('aspirasi', 'public');
             $validated['foto'] = $fotoPath;
@@ -152,6 +162,7 @@ class AspirasiController extends Controller
 
     public function destroy(Aspirasi $aspirasi)
     {
+        // Admin BOLEH hapus (untuk moderasi), pemilik juga boleh
         if (Auth::user()->role !== 'admin' && Auth::id() !== $aspirasi->user_id) {
             return redirect()->route('aspirasi.index')
                 ->with('error', 'Anda tidak memiliki akses!');
@@ -180,6 +191,17 @@ class AspirasiController extends Controller
             ]);
             $aspirasi->increment('upvotes_count');
             $message = 'Berhasil mendukung aspirasi ini!';
+
+            // ✅ Notifikasi ke PEMILIK aspirasi (jika bukan dia sendiri)
+            if ($aspirasi->user_id !== Auth::id()) {
+                Notification::create([
+                    'user_id' => $aspirasi->user_id,
+                    'aspirasi_id' => $aspirasi->id,
+                    'type' => 'upvote',
+                    'message' => Auth::user()->name . ' mendukung pengaduan: ' . $aspirasi->judul,
+                    'is_read' => false,
+                ]);
+            }
         }
 
         return response()->json([
@@ -203,6 +225,7 @@ class AspirasiController extends Controller
             'is_anonymous' => $request->has('is_anonymous'),
         ]);
 
+        // ✅ Notifikasi ke PEMILIK aspirasi
         if (Auth::id() !== $aspirasi->user_id) {
             Notification::create([
                 'user_id' => $aspirasi->user_id,
@@ -211,6 +234,20 @@ class AspirasiController extends Controller
                 'message' => 'Komentar baru pada pengaduan: ' . $aspirasi->judul,
                 'is_read' => false,
             ]);
+        }
+
+        // ✅ Notifikasi ke SEMUA ADMIN
+        $admins = User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            if ($admin->id !== Auth::id()) {
+                Notification::create([
+                    'user_id' => $admin->id,
+                    'aspirasi_id' => $aspirasi->id,
+                    'type' => 'new_comment',
+                    'message' => 'Komentar baru pada pengaduan: ' . $aspirasi->judul,
+                    'is_read' => false,
+                ]);
+            }
         }
 
         return redirect()->back()->with('success', 'Komentar berhasil ditambahkan!');
@@ -233,12 +270,21 @@ class AspirasiController extends Controller
             'tanggal_selesai' => $validated['status'] === 'selesai' ? now() : null,
         ]);
 
+        // ✅ Notifikasi ke PEMILIK aspirasi dengan pesan yang jelas
         if ($oldStatus !== $validated['status']) {
+            $statusMessages = [
+                'menunggu' => 'Pengaduan Anda sedang menunggu untuk ditinjau.',
+                'ditinjau' => 'Pengaduan Anda sedang ditinjau oleh admin.',
+                'dalam_perbaikan' => 'Pengaduan Anda sedang dalam proses perbaikan.',
+                'selesai' => 'Pengaduan Anda telah selesai ditangani. Terima kasih!',
+                'ditolak' => 'Pengaduan Anda ditolak. Silakan cek umpan balik admin.',
+            ];
+
             Notification::create([
                 'user_id' => $aspirasi->user_id,
                 'aspirasi_id' => $aspirasi->id,
                 'type' => 'status_update',
-                'message' => 'Status pengaduan "' . $aspirasi->judul . '" berubah menjadi: ' . $aspirasi->status_label,
+                'message' => 'Status pengaduan "' . $aspirasi->judul . '": ' . ($statusMessages[$validated['status']] ?? 'Status diperbarui'),
                 'is_read' => false,
             ]);
         }
